@@ -1,0 +1,20 @@
+.opauth-settings .row {
+    position: relative;
+    float: none;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.opauth-settings .row>div {
+    position: relative;
+    float: left;
+}
+
+.opauth-settings .row .status {
+    width: 100px;
+    margin-right: 10px;
+}
+
+.opauth-settings label {
+    cursor: pointer;
+}
