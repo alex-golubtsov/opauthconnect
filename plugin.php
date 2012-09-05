@@ -7,7 +7,7 @@ ET::$pluginInfo["Opauth"] = array(
 	"version" => ESOTALK_VERSION,
 	"author" => "Alex G.",
 	"authorEmail" => "alex.8fmi@gmail.com",
-                      "authorURL" => "http://mikrobill.com/",
+        "authorURL" => "http://mikrobill.com/",
 	"license" => "GPLv2"
 );
 
