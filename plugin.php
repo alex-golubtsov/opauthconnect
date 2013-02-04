@@ -11,7 +11,7 @@ ET::$pluginInfo["Opauth"] = array(
 	"license" => "GPLv2"
 );
 
-require_once PATH_PLUGINS."/".end(explode("/", __DIR__))."/lib/Opauth.php";
+require_once PATH_PLUGINS."/Opauth/lib/Opauth.php";
 
 class ETPlugin_Opauth extends ETPlugin {
     
