@@ -159,7 +159,7 @@ class OpauthStrategy{
 	 * 
 	 */
 	private function shipToCallback($data, $transport = null){
-		if (empty($transponrt)) $transport = $this->env['callback_transport'];
+		if (empty($transport)) $transport = $this->env['callback_transport'];
 		
 		switch($transport){
 			case 'get':
@@ -169,8 +169,10 @@ class OpauthStrategy{
 				$this->clientPost($this->env['callback_url'], array('opauth' => base64_encode(serialize($data))));
 				break;
 			case 'session':
-			default:			
-				session_start();
+			default:
+				if (!isset($_SESSION)){
+					session_start();
+				}
 				$_SESSION['opauth'] = $data;
 				$this->redirect($this->env['callback_url']);
 		}
@@ -240,6 +242,35 @@ class OpauthStrategy{
 		return $hash;
 	}
 	
+	/**
+	 * Maps user profile to auth response
+	 * 
+	 * @param array $profile User profile obtained from provider
+	 * @param string $profile_path Path to a $profile property. Use dot(.) to separate levels.
+	 *        eg. Path to $profile['a']['b']['c'] would be 'a.b.c'
+	 * @param string $auth_path Path to $this->auth that is to be set.
+	 */
+	protected function mapProfile($profile, $profile_path, $auth_path){
+		$from = explode('.', $profile_path);
+		
+		$base = $profile;
+		foreach ($from as $element){
+			if (is_array($base) && array_key_exists($element, $base)) $base = $base[$element];
+			else return false;
+		}
+		$value = $base;
+		
+		$to = explode('.', $auth_path);
+		
+		$auth = &$this->auth;
+		foreach ($to as $element){
+			$auth = &$auth[$element];
+		}
+		$auth = $value;
+		return true;
+		
+	}
+	
 		
 	/**
 	 * *****************************************************
@@ -252,7 +283,7 @@ class OpauthStrategy{
 	 * Static hashing funciton
 	 * 
 	 * @param string $input Input string
-	 * @param string $timestamp ISO 8601 formatted date * 
+	 * @param string $timestamp ISO 8601 formatted date
 	 * @param int $iteration Number of hash interations
 	 * @param string $salt
 	 * @return string Resulting hash
@@ -368,7 +399,7 @@ class OpauthStrategy{
 			$context = stream_context_create($options);
 		}
 
-		$content = @file_get_contents($url, false, $context);
+		$content = file_get_contents($url, false, $context);
 		$responseHeaders = implode("\r\n", $http_response_header);
 
 		return $content;
@@ -382,7 +413,9 @@ class OpauthStrategy{
 	* @return array Array of object properties
 	*/
 	public static function recursiveGetObjectVars($obj){
+		$arr = array();
 		$_arr = is_object($obj) ? get_object_vars($obj) : $obj;
+		
 		foreach ($_arr as $key => $val){
 			$val = (is_array($val) || is_object($val)) ? self::recursiveGetObjectVars($val) : $val;
 			

@@ -3,25 +3,25 @@ if (!defined("IN_ESOTALK")) exit;
 
 ET::$pluginInfo["Opauth"] = array(
 	"name" => "Opauth.connect",
-	"description" => "Sign in via social networks.",
+	"description" => "Sign in via social networks",
 	"version" => ESOTALK_VERSION,
 	"author" => "Alex G.",
 	"authorEmail" => "alex.8fmi@gmail.com",
-        "authorURL" => "http://mikrobill.com/",
+        "authorURL" => "http://mikrobill.com",
 	"license" => "GPLv2"
 );
 
-require_once PATH_PLUGINS."/Opauth/lib/Opauth.php";
+require_once "lib".DIRECTORY_SEPARATOR."Opauth.php";
 
 class ETPlugin_Opauth extends ETPlugin {
     
     private $config = array();
-
-    public function __construct() {
+    
+    public function __construct($rootDirectory) {
+        parent::__construct($rootDirectory);
         $this->config['security_salt'] = C("plugin.Opauth.security_salt") ? C("plugin.Opauth.security_salt") : '01wLr9OE0TZkIhkUsIJm';
         $this->config['path'] = URL('/user/auth/');
         $this->config['callback_url'] = URL('/user/scallback/');
-        $this->rootDirectory = 'plugins/Opauth';
         
         if( C("plugin.Opauth.twitter_enable") ) {
             $this->config['Strategy']['Twitter'] = array(
@@ -46,21 +46,41 @@ class ETPlugin_Opauth extends ETPlugin {
         }
     }
     
+    public function userController_setRemember() {
+        ET::$session->store("remember", (int) R("remember", 0));
+    }
+    
     public function handler_init($sender) {
-            $sender->addCSSFile($this->getResource("opauth.css", true));
+        if(ET::$session->get("remember") === null) ET::$session->store("remember", 1);
+        if( isset($sender->menus['user']->items['join']) ) {
+            unset($sender->menus['user']->items['join']);
+        }
+        $sender->addCSSFile($this->getResource("opauth.css"));
+        ET::define("message.logInToReply", "<a href='%1\$s' class='link-login'>Log In</a> or <a href='%1\$s' class='link-login'>Sign Up</a> to reply!", true);
     }
     
     public function handler_RenderOpauth($sender) {
         $data = array();
         if( C("plugin.Opauth.twitter_enable") ) {
-            $data['twitter_url'] = URL('user/auth/twitter');
+            $data['twitter'] = array(
+                'url' => URL('user/auth/twitter'),
+                'icon' => URL($this->getResource("images/tw.png"))
+            );
         }
         if( C("plugin.Opauth.facebook_enable") ) {
-            $data['facebook_url'] = URL('user/auth/facebook');
+            $data['facebook'] = array(
+                'url' => URL('user/auth/facebook'),
+                'icon' => URL($this->getResource("images/fb.png"))
+            );
         }
         if( C("plugin.Opauth.google_enable") ) {
-            $data['google_url'] = URL('user/auth/google');
+            $data['google'] = array(
+                'url' => URL('user/auth/google'),
+                'icon' => URL($this->getResource("images/gg.png"))
+            );
         }
+        $data["remember"] = ET::$session->get("remember", 0);
+        
         print $sender->getViewContents('buttons', $data);
     }
     
@@ -104,14 +124,13 @@ class ETPlugin_Opauth extends ETPlugin {
         $sender->data("OpauthSettingsForm", $form);
         return $this->getView('settings');
     }
-    
-//     public function userController_join($sender) {}
+
 //     public function settingsController_password($sender) {}
     
     public function userController_auth($sender, $sn) {
         if (ET::$session->user) {
             $sender->message( T('You are already logged in.') );
-            redirect( URL(R("return")) );
+            redirect(URL(""));
         }
         
         if( in_array($sn, array('facebook', 'google', 'twitter')) ) {
@@ -124,15 +143,18 @@ class ETPlugin_Opauth extends ETPlugin {
         $sql = ET::SQL()->select(array('email', 'username', 'memberId', 'resetPassword', 'TWconfirmed'))
                         ->from("member")
                         ->where('TWid', $response['auth']['uid'])
-                        ->where('fromSN', 1)
+//                        ->where('fromSN', 1)
                         ->exec()
                         ->firstRow();
         if(!empty($sql) && !$sql['TWconfirmed']) {
+            $params = array();
+            $params['confirmation_url'] = URL("user/twitterconfirm/".$sql['memberId'].$sql['resetPassword'], true);
             sendEmail($sql['email'],
                     "First signing in via Twitter",
-                    "Someone (hopefully you) has first time signed in via Twitter.\nPlease confirm your email:\n ".URL("user/twitterconfirm/".$sql['memberId'].$sql['resetPassword'], true));
+                    $sender->getViewContents('twitter_confirmation', $params));
+
             $sender->message("Confirmation was sent to your e-mail address(".$sql['email']."). Please confirm before using twitter.", "success");
-            redirect( URL(R("return")) );
+            redirect( URL("") );
         }
         elseif(!empty($sql) && $sql['TWconfirmed']) {
             return $sql['email'];
@@ -154,14 +176,14 @@ class ETPlugin_Opauth extends ETPlugin {
             if(!$form->errorCount()) {
                 $response = ET::$session->get("twitter_response");
                 $data = array(
-                            "username" => $this->generate_nickname(ET::memberModel(), $response['auth']['info']['name'], $form->getValue('email')),
-                            "email" => $form->getValue('email'),
-                            "password" => generateRandomString(32),
-                            "account" => ACCOUNT_MEMBER,
-                            "resetPassword" => md5(uniqid(rand())),
-                            "confirmedEmail" => 1,
-                            "fromSN" => 1,
-                            "TWid" => $response['auth']['uid']
+                    "username" => $this->generate_nickname(ET::memberModel(), $response['auth']['info']['name'], $form->getValue('email')),
+                    "email" => $form->getValue('email'),
+                    "password" => generateRandomString(32),
+                    "account" => ACCOUNT_MEMBER,
+                    "resetPassword" => md5(uniqid(rand())),
+                    "confirmedEmail" => 1,
+                    "fromSN" => 1,
+                    "TWid" => $response['auth']['uid']
                 );
                 $memberID = ET::memberModel()->create($data);
                 if(!empty($response['auth']['info']['image'])) {
@@ -198,11 +220,12 @@ class ETPlugin_Opauth extends ETPlugin {
 		));
 
             ET::$session->loginWithMemberId($memberId);
+            if( ET::$session->get("remember") ) ET::$session->setRememberCookie($memberId);
         }
         else {
             $sender->message(T("Something went wrong. Can't cofirm your email."), "warning");
         }
-        redirect(URL(R("return")));
+        redirect(URL(""));
     }
     
     private function generate_nickname($model, $name, $email) {
@@ -229,9 +252,9 @@ class ETPlugin_Opauth extends ETPlugin {
         }
         
         $user = ET::memberModel()->getById( ET::$session->get("userId") );
-        if( $user['fromSN'] ) {
+//        if( $user['fromSN'] ) {
             unset($sender->data['panes']->items['password']);
-        }
+//        }
     }
     
     public function settingsController_login($sender) {
@@ -307,21 +330,25 @@ class ETPlugin_Opauth extends ETPlugin {
                         );
                         
                         $memberId = $model->create($data);
-                        ET::$session->loginWithMemberId( $memberId );
+                        ET::$session->loginWithMemberId($memberId);
+                        if( ET::$session->get("remember") ) ET::$session->setRememberCookie($memberId);
+                        
                         if(!empty($response['auth']['info']['image'])) {
                             $avatar = ET::uploader()->saveAsImage($response['auth']['info']['image'], PATH_UPLOADS."/avatars/".ET::$session->userId, C("esoTalk.avatars.width"), C("esoTalk.avatars.height"), "crop");
                             ET::memberModel()->updateById(ET::$session->userId, array("avatarFormat" => pathinfo($avatar, PATHINFO_EXTENSION)));
                         }
+                        
                         break;
 
                 case 'emailTaken':
                         $sql = ET::SQL()->select('memberId')
                                         ->from("member")
                                         ->where('email', $response['auth']['info']['email'])
-                                        ->where('fromSN', 1)
+//                                        ->where('fromSN', 1)
                                         ->exec()
                                         ->result();
-                        ET::$session->loginWithMemberId( $sql );
+                        ET::$session->loginWithMemberId($sql);
+                        if( ET::$session->get("remember") ) ET::$session->setRememberCookie($sql);
                         break;
 
                 default:
@@ -329,34 +356,35 @@ class ETPlugin_Opauth extends ETPlugin {
                         break;
             }
         }
-         redirect( URL(R("return")) );
+         redirect(URL(""));
     }
     
     private function auth_response_validate($sender) {
         $Opauth = new Opauth( $this->config, false );
         $response = null;
 
-        switch($Opauth->env['callback_transport']){	
-                case 'session':
-                        $response = ET::$session->get('opauth');
-                        ET::$session->remove('opauth');
-                        break;
-                case 'post':
-                        $response = unserialize(base64_decode( $_POST['opauth'] ));
-                        break;
-                case 'get':
-                        $response = unserialize(base64_decode( $_GET['opauth'] ));
-                        break;
-                default:
-                        $sender->message( T('Unsupported callback_transport.') , 'warning');
-                        return false;
+        switch($Opauth->env['callback_transport']) {	
+            case 'session':
+                    $response = ET::$session->get('opauth');
+                    ET::$session->remove('opauth');
+                    break;
+            case 'post':
+                    $response = unserialize(base64_decode( $_POST['opauth'] ));
+                    break;
+            case 'get':
+                    $response = unserialize(base64_decode( $_GET['opauth'] ));
+                    break;
+            default:
+                    $sender->message( T('Unsupported callback_transport.') , 'warning');
+                    return false;
         }
         
-        if (array_key_exists('error', $response)){
-                $sender->message( T('Authentication error') , 'warning');
-                return false;
+        if( array_key_exists('error', $response) ) {
+            $error = json_decode($response['error']['raw']);
+            $sender->message( T('Authentication error').". ".$error->errors[0]->message , 'warning');
+            return false;
         }
-        else{
+        else {
                 if (empty($response['auth']) || empty($response['timestamp']) || empty($response['signature']) || empty($response['auth']['provider']) || empty($response['auth']['uid'])){
                         $sender->message( T('Invalid auth response: Missing key auth response components.') , 'warning');
                         return false;
@@ -382,12 +410,12 @@ class ETPlugin_Opauth extends ETPlugin {
     }
     
     public function setup($oldVersion = "") {
-            ET::$database->structure()->table("member")
-                                      ->column("fromSN", "tinyint unsigned", false)
-                                      ->column("TWid", "int(11) unsigned", false)
-                                      ->column("TWconfirmed", "tinyint unsigned", false)
-                                      ->exec(false);
-            return true;
+        ET::$database->structure()->table("member")
+                                  ->column("fromSN", "tinyint unsigned", false)
+                                  ->column("TWid", "int(11) unsigned", false)
+                                  ->column("TWconfirmed", "tinyint unsigned", false)
+                                  ->exec(false);
+        return true;
     }
     
     /**
