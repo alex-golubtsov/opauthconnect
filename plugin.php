@@ -1,10 +1,10 @@
 <?php
 if (!defined("IN_ESOTALK")) exit;
 
-ET::$pluginInfo["Opauth"] = array(
+ET::$pluginInfo["opauthconnect"] = array(
 	"name" => "Opauth.connect",
 	"description" => "Sign in via social networks",
-	"version" => ESOTALK_VERSION,
+	"version" => "1.0.0.2",
 	"author" => "Alex G.",
 	"authorEmail" => "alex.8fmi@gmail.com",
         "authorURL" => "http://mikrobill.com",
@@ -13,37 +13,43 @@ ET::$pluginInfo["Opauth"] = array(
 
 require_once "lib".DIRECTORY_SEPARATOR."Opauth.php";
 
-class ETPlugin_Opauth extends ETPlugin {
+class ETPlugin_Opauthconnect extends ETPlugin {
     
+    private static $CONFIG_PREFIX = "plugin.opauthconnect.";
+    private static $DEFAULT_SECURITY_SALT = "01wLr9OE0TZkIhkUsIJm";
     private $config = array();
     
     public function __construct($rootDirectory) {
         parent::__construct($rootDirectory);
-        $this->config['security_salt'] = C("plugin.Opauth.security_salt") ? C("plugin.Opauth.security_salt") : '01wLr9OE0TZkIhkUsIJm';
+        $this->config['security_salt'] = $this->C("security_salt") ? $this->C("security_salt") : self::$DEFAULT_SECURITY_SALT;
         $this->config['path'] = URL('/user/auth/');
         $this->config['callback_url'] = URL('/user/scallback/');
         
-        if( C("plugin.Opauth.twitter_enable") ) {
+        if( $this->C("twitter_enable") ) {
             $this->config['Strategy']['Twitter'] = array(
-                'key' => C("plugin.Opauth.twitter_key"),
-                'secret' => C("plugin.Opauth.twitter_secret")
+                'key' => $this->C("twitter_key"),
+                'secret' => $this->C("twitter_secret")
             );
         }
         
-        if( C("plugin.Opauth.facebook_enable") ) {
+        if( $this->C("facebook_enable") ) {
             $this->config['Strategy']['Facebook'] = array(
-                'app_id' => C("plugin.Opauth.facebook_key"),
-                'app_secret' => C("plugin.Opauth.facebook_secret"),
+                'app_id' => $this->C("facebook_key"),
+                'app_secret' => $this->C("facebook_secret"),
                 'scope' => 'email'
             );
         }
         
-        if( C("plugin.Opauth.google_enable") ) {
+        if( $this->C("google_enable") ) {
             $this->config['Strategy']['Google'] = array(
-                'client_id' => C("plugin.Opauth.google_key"),
-                'client_secret' => C("plugin.Opauth.google_secret")
+                'client_id' => $this->C("google_key"),
+                'client_secret' => $this->C("google_secret")
             );
         }
+    }
+    
+    private function C($name) {
+        return C(self::$CONFIG_PREFIX.$name);
     }
     
     public function userController_setRemember() {
@@ -61,19 +67,19 @@ class ETPlugin_Opauth extends ETPlugin {
     
     public function handler_RenderOpauth($sender) {
         $data = array();
-        if( C("plugin.Opauth.twitter_enable") ) {
+        if( $this->C("twitter_enable") ) {
             $data['twitter'] = array(
                 'url' => URL('user/auth/twitter'),
                 'icon' => URL($this->getResource("images/tw.png"))
             );
         }
-        if( C("plugin.Opauth.facebook_enable") ) {
+        if( $this->C("facebook_enable") ) {
             $data['facebook'] = array(
                 'url' => URL('user/auth/facebook'),
                 'icon' => URL($this->getResource("images/fb.png"))
             );
         }
-        if( C("plugin.Opauth.google_enable") ) {
+        if( $this->C("google_enable") ) {
             $data['google'] = array(
                 'url' => URL('user/auth/google'),
                 'icon' => URL($this->getResource("images/gg.png"))
@@ -88,31 +94,31 @@ class ETPlugin_Opauth extends ETPlugin {
         $sender->addCSSFile($this->getResource("settings.css"));
         $form = ETFactory::make("form");
         $form->action = URL("admin/plugins");
-        $form->setValue("strategy[tw]", C("plugin.Opauth.twitter_enable"));
-        $form->setValue("twitter_key", C("plugin.Opauth.twitter_key"));
-        $form->setValue("twitter_secret", C("plugin.Opauth.twitter_secret"));
-        $form->setValue("strategy[fb]", C("plugin.Opauth.facebook_enable"));
-        $form->setValue("facebook_key", C("plugin.Opauth.facebook_key"));
-        $form->setValue("facebook_secret", C("plugin.Opauth.facebook_secret"));
-        $form->setValue("strategy[gg]", C("plugin.Opauth.google_enable"));
-        $form->setValue("google_key", C("plugin.Opauth.google_key"));
-        $form->setValue("google_secret", C("plugin.Opauth.google_secret"));
-        $form->setValue("change_name", C("plugin.Opauth.change_name"));
-        $form->setValue("security_salt", C("plugin.Opauth.security_salt") ? C("plugin.Opauth.security_salt") : '01wLr9OE0TZkIhkUsIJm');
+        $form->setValue( "strategy[tw]",    $this->C("twitter_enable") );
+        $form->setValue( "twitter_key",     $this->C("twitter_key") );
+        $form->setValue( "twitter_secret",  $this->C("twitter_secret") );
+        $form->setValue( "strategy[fb]",    $this->C("facebook_enable") );
+        $form->setValue( "facebook_key",    $this->C("facebook_key") );
+        $form->setValue( "facebook_secret", $this->C("facebook_secret") );
+        $form->setValue( "strategy[gg]",    $this->C("google_enable") );
+        $form->setValue( "google_key",      $this->C("google_key") );
+        $form->setValue( "google_secret",   $this->C("google_secret") );
+        $form->setValue( "change_name",     $this->C("change_name") );
+        $form->setValue( "security_salt",   $this->C("security_salt") ? $this->C("security_salt") : self::$DEFAULT_SECURITY_SALT);
 
         if ($form->validPostBack("save")) {
             $config = array();
-            $config["plugin.Opauth.twitter_enable"] = $form->getValue("strategy[tw]");
-            $config["plugin.Opauth.twitter_key"] = $form->getValue("twitter_key");
-            $config["plugin.Opauth.twitter_secret"] = $form->getValue("twitter_secret");
-            $config["plugin.Opauth.facebook_enable"] = $form->getValue("strategy[fb]");
-            $config["plugin.Opauth.facebook_key"] = $form->getValue("facebook_key");
-            $config["plugin.Opauth.facebook_secret"] = $form->getValue("facebook_secret");
-            $config["plugin.Opauth.google_enable"] = $form->getValue("strategy[gg]");
-            $config["plugin.Opauth.google_key"] = $form->getValue("google_key");
-            $config["plugin.Opauth.google_secret"] = $form->getValue("google_secret");
-            $config["plugin.Opauth.change_name"] = $form->getValue("change_name");
-            $config["plugin.Opauth.security_salt"] = $form->getValue("security_salt");
+            $config[self::$CONFIG_PREFIX."twitter_enable"] = $form->getValue("strategy[tw]");
+            $config[self::$CONFIG_PREFIX."twitter_key"] = $form->getValue("twitter_key");
+            $config[self::$CONFIG_PREFIX."twitter_secret"] = $form->getValue("twitter_secret");
+            $config[self::$CONFIG_PREFIX."facebook_enable"] = $form->getValue("strategy[fb]");
+            $config[self::$CONFIG_PREFIX."facebook_key"] = $form->getValue("facebook_key");
+            $config[self::$CONFIG_PREFIX."facebook_secret"] = $form->getValue("facebook_secret");
+            $config[self::$CONFIG_PREFIX."google_enable"] = $form->getValue("strategy[gg]");
+            $config[self::$CONFIG_PREFIX."google_key"] = $form->getValue("google_key");
+            $config[self::$CONFIG_PREFIX."google_secret"] = $form->getValue("google_secret");
+            $config[self::$CONFIG_PREFIX."change_name"] = $form->getValue("change_name");
+            $config[self::$CONFIG_PREFIX."security_salt"] = $form->getValue("security_salt");
 
             if (!$form->errorCount()) {
                 ET::writeConfig($config);
@@ -247,7 +253,7 @@ class ETPlugin_Opauth extends ETPlugin {
     }
     
     public function handler_settingsController_renderBefore($sender) {
-        if( C("plugin.Opauth.change_name") ) {
+        if( $this->C("change_name") ) {
             $sender->data['panes']->add('login', "<a href='".URL("settings/login")."'>".T("Change login")."</a>");
         }
         
@@ -258,7 +264,7 @@ class ETPlugin_Opauth extends ETPlugin {
     }
     
     public function settingsController_login($sender) {
-        if( !C("plugin.Opauth.change_name") ) {
+        if( !$this->C("change_name") ) {
             $sender->render404();
             return;
         }
@@ -268,30 +274,28 @@ class ETPlugin_Opauth extends ETPlugin {
         $form->action = URL("settings/login");
 
         if ($form->validPostBack("save")) {
-                $model = ET::memberModel();
-                
-                if ($model->validateUsername($form->getValue('username')) == 'nameTaken') {
-                        $form->error("username", T("This username is already exists"));
-                }
-                elseif($model->validateUsername($form->getValue('username')) == 'invalidUsername') {
-                        $form->error("username", T("Username is incorrect"));
-                }
+            $model = ET::memberModel();
+
+            if ($model->validateUsername($form->getValue('username')) == 'nameTaken') {
+                $form->error("username", T("This username is already exists"));
+            }
+            elseif($model->validateUsername($form->getValue('username')) == 'invalidUsername') {
+                $form->error("username", T("Username is incorrect"));
+            }
+            else {
+                $update['username'] = $form->getValue('username');
+            }
+
+            if (!$form->errorCount() && isset($update)) {
+                $model->updateById(ET::$session->userId, $update);
+                if ($model->errorCount()) {
+                    $form->errors($model->errors());
+                }                            
                 else {
-                        $update['username'] = $form->getValue('username');
+                    $sender->message(T("message.changesSaved"), "success");
+                    $sender->redirect(URL("settings"));
                 }
-
-                if (!$form->errorCount() && isset($update)) {
-                        $model->updateById(ET::$session->userId, $update);
-                        if ($model->errorCount()) {
-                                $form->errors($model->errors());
-                        }                            
-                        else {
-                                $sender->message(T("message.changesSaved"), "success");
-                                $sender->redirect(URL("settings"));
-                        }
-
-                }
-
+            }
         }
 
         $sender->data("form", $form);
@@ -419,7 +423,7 @@ class ETPlugin_Opauth extends ETPlugin {
     }
     
     /**
-     * TODO: In newest version of esoTalk remove "plugin.Opauth.*" from config.
+     * TODO: In newest version of esoTalk remove "plugin.opauthconnect.*" from config.
      * Now there is no way to do this.
      */
     public function uninstall() {
