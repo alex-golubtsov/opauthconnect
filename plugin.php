@@ -22,8 +22,8 @@ class ETPlugin_Opauthconnect extends ETPlugin {
     public function __construct($rootDirectory) {
         parent::__construct($rootDirectory);
         $this->config['security_salt'] = $this->C("security_salt") ? $this->C("security_salt") : self::$DEFAULT_SECURITY_SALT;
-        $this->config['path'] = URL('/user/auth/');
-        $this->config['callback_url'] = URL('/user/scallback/');
+        $this->config['path'] = URL('user/auth/');
+        $this->config['callback_url'] = URL('user/scallback/');
         
         if( $this->C("twitter_enable") ) {
             $this->config['Strategy']['Twitter'] = array(
