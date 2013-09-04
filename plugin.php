@@ -13,7 +13,7 @@ ET::$pluginInfo["opauthconnect"] = array(
 
 require_once "lib".DIRECTORY_SEPARATOR."Opauth.php";
 
-class ETPlugin_Opauthconnect extends ETPlugin {
+class ETPlugin_opauthconnect extends ETPlugin {
     
     private static $CONFIG_PREFIX = "plugin.opauthconnect.";
     private static $DEFAULT_SECURITY_SALT = "01wLr9OE0TZkIhkUsIJm";
